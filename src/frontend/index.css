@@ -1,0 +1,203 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ─── Font Faces ─────────────────────────────────────────────────── */
+@font-face {
+  font-family: "Cabinet Grotesk";
+  src: url("/assets/fonts/CabinetGrotesk-Variable.woff2") format("woff2");
+  font-weight: 100 900;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Bricolage Grotesque";
+  src: url("/assets/fonts/BricolageGrotesque-Variable.woff2") format("woff2");
+  font-weight: 200 800;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Satoshi";
+  src: url("/assets/fonts/Satoshi-Variable.woff2") format("woff2");
+  font-weight: 300 900;
+  font-display: swap;
+}
+
+/* ─── Design Tokens (OKLCH) ──────────────────────────────────────── */
+@layer base {
+  :root {
+    --radius: 0.75rem;
+
+    /* Backgrounds */
+    --background: 0.97 0.008 120;
+    --foreground: 0.18 0.04 150;
+
+    /* Cards */
+    --card: 0.99 0.004 120;
+    --card-foreground: 0.18 0.04 150;
+
+    /* Popovers */
+    --popover: 0.99 0.004 120;
+    --popover-foreground: 0.18 0.04 150;
+
+    /* Primary: Deep forest green */
+    --primary: 0.35 0.12 145;
+    --primary-foreground: 0.98 0.01 120;
+
+    /* Secondary: soft sage */
+    --secondary: 0.92 0.03 135;
+    --secondary-foreground: 0.28 0.08 150;
+
+    /* Muted */
+    --muted: 0.94 0.015 130;
+    --muted-foreground: 0.52 0.05 145;
+
+    /* Accent: chartreuse lime */
+    --accent: 0.88 0.18 130;
+    --accent-foreground: 0.18 0.08 145;
+
+    /* Destructive */
+    --destructive: 0.55 0.22 27;
+    --destructive-foreground: 0.98 0 0;
+
+    /* Borders & Inputs */
+    --border: 0.88 0.025 130;
+    --input: 0.88 0.025 130;
+    --ring: 0.48 0.12 145;
+
+    /* Charts — agriculture palette */
+    --chart-1: 0.55 0.18 145;
+    --chart-2: 0.72 0.16 195;
+    --chart-3: 0.78 0.19 85;
+    --chart-4: 0.65 0.18 35;
+    --chart-5: 0.50 0.14 270;
+
+    /* Health status */
+    --health-healthy: 0.58 0.18 145;
+    --health-at-risk: 0.72 0.20 75;
+    --health-critical: 0.58 0.22 27;
+
+    /* Sidebar — dark forest */
+    --sidebar: 0.22 0.07 148;
+    --sidebar-foreground: 0.90 0.03 130;
+    --sidebar-primary: 0.72 0.20 130;
+    --sidebar-primary-foreground: 0.18 0.06 148;
+    --sidebar-accent: 0.28 0.08 148;
+    --sidebar-accent-foreground: 0.95 0.03 130;
+    --sidebar-border: 0.30 0.07 148;
+    --sidebar-ring: 0.55 0.15 145;
+  }
+
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+    font-family: "Satoshi", "Cabinet Grotesk", sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  h1, h2, h3 {
+    font-family: "Bricolage Grotesque", "Cabinet Grotesk", sans-serif;
+  }
+}
+
+/* ─── Custom Utilities ───────────────────────────────────────────── */
+@layer utilities {
+  .health-dot-healthy {
+    background-color: oklch(var(--health-healthy));
+  }
+  .health-dot-at-risk {
+    background-color: oklch(var(--health-at-risk));
+  }
+  .health-dot-critical {
+    background-color: oklch(var(--health-critical));
+  }
+
+  .sidebar-gradient {
+    background: linear-gradient(
+      180deg,
+      oklch(0.20 0.08 148) 0%,
+      oklch(0.24 0.07 150) 100%
+    );
+  }
+
+  .card-hover {
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
+  }
+  .card-hover:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 24px oklch(0.35 0.12 145 / 0.15);
+  }
+
+  .stat-up {
+    color: oklch(0.52 0.18 145);
+  }
+  .stat-down {
+    color: oklch(0.52 0.20 27);
+  }
+
+  .agri-badge-healthy {
+    background-color: oklch(0.90 0.10 145);
+    color: oklch(0.32 0.14 145);
+    border: 1px solid oklch(0.72 0.14 145);
+  }
+  .agri-badge-at-risk {
+    background-color: oklch(0.96 0.12 80);
+    color: oklch(0.45 0.16 55);
+    border: 1px solid oklch(0.80 0.18 80);
+  }
+  .agri-badge-critical {
+    background-color: oklch(0.96 0.08 25);
+    color: oklch(0.48 0.20 27);
+    border: 1px solid oklch(0.76 0.15 27);
+  }
+  .agri-badge-active {
+    background-color: oklch(0.90 0.10 145);
+    color: oklch(0.32 0.14 145);
+    border: 1px solid oklch(0.72 0.14 145);
+  }
+  .agri-badge-fallow {
+    background-color: oklch(0.95 0.04 85);
+    color: oklch(0.50 0.10 75);
+    border: 1px solid oklch(0.82 0.10 75);
+  }
+  .agri-badge-harvesting {
+    background-color: oklch(0.93 0.10 205);
+    color: oklch(0.38 0.15 210);
+    border: 1px solid oklch(0.68 0.14 205);
+  }
+
+  /* Login page background */
+  .bg-login-bg {
+    background: linear-gradient(
+      135deg,
+      oklch(0.18 0.09 150) 0%,
+      oklch(0.22 0.08 148) 40%,
+      oklch(0.20 0.10 155) 70%,
+      oklch(0.16 0.08 145) 100%
+    );
+  }
+
+  /* forest-900 text colour for lime buttons */
+  .text-forest-900 {
+    color: oklch(0.16 0.07 148);
+  }
+
+  .scrollbar-thin {
+    scrollbar-width: thin;
+    scrollbar-color: oklch(0.35 0.07 148) transparent;
+  }
+  .scrollbar-thin::-webkit-scrollbar {
+    width: 4px;
+  }
+  .scrollbar-thin::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  .scrollbar-thin::-webkit-scrollbar-thumb {
+    background-color: oklch(0.35 0.07 148);
+    border-radius: 999px;
+  }
+}
