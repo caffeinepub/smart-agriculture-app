@@ -117,14 +117,22 @@ const DEFAULT_ZONES = [
   { id: "zone-6", name: "Orchard" },
 ];
 
-export default function CropsPage({ isGuest = false }: { isGuest?: boolean }) {
+export default function CropsPage({
+  isGuest = false,
+  useBackend = false,
+}: { isGuest?: boolean; useBackend?: boolean }) {
   const { data: cropsRaw = [], isLoading } = useAllCrops();
   const { data: zonesRaw = [] } = useAllZones();
   const addCrop = useAddCrop();
   const deleteCrop = useDeleteCrop();
   const { t } = useLanguage();
 
-  const crops = cropsRaw.length > 0 ? cropsRaw : DEFAULT_CROPS;
+  // For email/guest users, manage crops in local state so add/delete work without II
+  const backendHasData = useBackend && cropsRaw.length > 0;
+  const [localCrops, setLocalCrops] = useState<CropRecord[]>(() =>
+    backendHasData ? cropsRaw : DEFAULT_CROPS,
+  );
+  const crops = backendHasData ? cropsRaw : localCrops;
   const zones = zonesRaw.length > 0 ? zonesRaw : DEFAULT_ZONES;
 
   const [addOpen, setAddOpen] = useState(false);
@@ -142,7 +150,7 @@ export default function CropsPage({ isGuest = false }: { isGuest?: boolean }) {
 
   function checkAuth(): boolean {
     if (isGuest) {
-      toast.error("Please login with Internet Identity to make changes");
+      toast.error("Please login to make changes");
       return false;
     }
     return true;
@@ -173,6 +181,22 @@ export default function CropsPage({ isGuest = false }: { isGuest?: boolean }) {
       irrigationNeeds: Number.parseFloat(form.irrigationNeeds),
       expectedYield: Number.parseFloat(form.expectedYield),
     };
+
+    // For email-logged-in users (no Internet Identity), save to local state directly
+    if (!useBackend) {
+      setLocalCrops((prev) => [...prev, crop]);
+      toast.success(`${t("crops.addCrop")}: "${form.cropType}"`);
+      setAddOpen(false);
+      setForm({
+        cropType: "Maize",
+        zoneId: "",
+        plantingDate: "",
+        irrigationNeeds: "40",
+        expectedYield: "5000",
+      });
+      return;
+    }
+
     try {
       await addCrop.mutateAsync(crop);
       toast.success(`${t("crops.addCrop")}: "${form.cropType}"`);
@@ -191,6 +215,14 @@ export default function CropsPage({ isGuest = false }: { isGuest?: boolean }) {
 
   async function handleDelete(id: string, type: string) {
     if (!checkAuth()) return;
+
+    // For email-logged-in users, delete from local state directly
+    if (!useBackend) {
+      setLocalCrops((prev) => prev.filter((c) => c.id !== id));
+      toast.success(`"${type}" ${t("fields.delete")}`);
+      return;
+    }
+
     try {
       await deleteCrop.mutateAsync(id);
       toast.success(`"${type}" ${t("fields.delete")}`);
@@ -215,9 +247,11 @@ export default function CropsPage({ isGuest = false }: { isGuest?: boolean }) {
         <Button
           data-ocid="crops.add_crop.open_modal_button"
           onClick={() => {
-            if (!isGuest) setAddOpen(true);
-            else
-              toast.error("Please login with Internet Identity to add crops");
+            if (isGuest) {
+              toast.error("Please login to add crops");
+            } else {
+              setAddOpen(true);
+            }
           }}
           className="bg-primary text-primary-foreground hover:bg-primary/90"
         >
@@ -428,10 +462,10 @@ export default function CropsPage({ isGuest = false }: { isGuest?: boolean }) {
             <Button
               data-ocid="crops.add_crop.submit_button"
               onClick={handleAdd}
-              disabled={addCrop.isPending}
+              disabled={useBackend && addCrop.isPending}
               className="bg-primary text-primary-foreground"
             >
-              {addCrop.isPending ? (
+              {useBackend && addCrop.isPending ? (
                 <Loader2 className="w-4 h-4 mr-2 animate-spin" />
               ) : null}
               {t("crops.add")}

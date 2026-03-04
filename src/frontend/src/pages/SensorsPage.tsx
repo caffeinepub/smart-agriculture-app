@@ -84,7 +84,8 @@ const DEFAULT_ZONES = [
 
 export default function SensorsPage({
   isGuest = false,
-}: { isGuest?: boolean }) {
+  useBackend = false,
+}: { isGuest?: boolean; useBackend?: boolean }) {
   const { data: zonesRaw = [] } = useAllZones();
   const addSensorData = useAddSensorData();
   const { t } = useLanguage();
@@ -139,7 +140,7 @@ export default function SensorsPage({
 
   async function handleAddReading() {
     if (isGuest) {
-      toast.error("Please login with Internet Identity to add sensor readings");
+      toast.error("Please login to add sensor readings");
       return;
     }
     if (!form.zoneId) {
@@ -156,14 +157,39 @@ export default function SensorsPage({
       nitrogenLevel: Number.parseFloat(form.nitrogenLevel),
       timestamp: BigInt(Date.now()),
     };
+
+    // For email-logged-in users (no Internet Identity), save to local state directly
+    if (!useBackend) {
+      setSensorData((prev) => ({ ...prev, [form.zoneId]: data }));
+      toast.success(t("sensors.addReading"));
+      setAddOpen(false);
+      setForm({
+        zoneId: "",
+        temperature: "26.0",
+        humidity: "65",
+        soilMoisture: "45",
+        phLevel: "6.8",
+        nitrogenLevel: "70",
+      });
+      return;
+    }
+
     try {
       await addSensorData.mutateAsync(data);
       setSensorData((prev) => ({ ...prev, [form.zoneId]: data }));
       toast.success(t("sensors.addReading"));
       setAddOpen(false);
+      setForm({
+        zoneId: "",
+        temperature: "26.0",
+        humidity: "65",
+        soilMoisture: "45",
+        phLevel: "6.8",
+        nitrogenLevel: "70",
+      });
     } catch {
       toast.error(
-        "Failed to add sensor reading. Please ensure you are logged in.",
+        "Failed to add sensor reading. Please ensure you are logged in with Internet Identity.",
       );
     }
   }
@@ -195,10 +221,7 @@ export default function SensorsPage({
           <Button
             onClick={() => {
               if (!isGuest) setAddOpen(true);
-              else
-                toast.error(
-                  "Please login with Internet Identity to add sensor readings",
-                );
+              else toast.error("Please login to add sensor readings");
             }}
             className="bg-primary text-primary-foreground hover:bg-primary/90"
           >
@@ -310,10 +333,10 @@ export default function SensorsPage({
             </Button>
             <Button
               onClick={handleAddReading}
-              disabled={addSensorData.isPending}
+              disabled={useBackend && addSensorData.isPending}
               className="bg-primary text-primary-foreground"
             >
-              {addSensorData.isPending ? (
+              {useBackend && addSensorData.isPending ? (
                 <Loader2 className="w-4 h-4 mr-2 animate-spin" />
               ) : null}
               {t("sensors.add")}

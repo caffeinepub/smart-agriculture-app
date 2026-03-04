@@ -100,6 +100,7 @@ const translations = {
     "fields.delete": "Delete",
     "fields.cancel": "Cancel",
     "fields.submit": "Add Zone",
+    "fields.save": "Save Changes",
     "fields.activeCrops": "active crops",
     "fields.activeCrop": "active crop",
 
@@ -370,6 +371,7 @@ const translations = {
     "fields.delete": "நீக்கவும்",
     "fields.cancel": "ரத்து செய்",
     "fields.submit": "மண்டலம் சேர்க்கவும்",
+    "fields.save": "மாற்றங்களை சேமி",
     "fields.activeCrops": "செயலில் உள்ள பயிர்கள்",
     "fields.activeCrop": "செயலில் உள்ள பயிர்",
 

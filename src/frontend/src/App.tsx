@@ -31,6 +31,8 @@ function AppInner() {
   const [guestMode, setGuestMode] = useState(false);
   // Once the user has explicitly logged in (email/password form or guest), latch permanently
   const [userLoggedIn, setUserLoggedIn] = useState(false);
+  // Track if user logged in via the email/password form (not guest, not Internet Identity)
+  const [emailLoggedIn, setEmailLoggedIn] = useState(false);
   // initDone = auth client has fully initialized and we know if there's a prior session
   const [initDone, setInitDone] = useState(false);
 
@@ -78,7 +80,8 @@ function AppInner() {
     }
   }, [hasValidIdentity]);
 
-  const isGuestMode = !hasValidIdentity;
+  // User is NOT in guest mode if they: have a valid II identity OR logged in via email form
+  const isGuestMode = !hasValidIdentity && !emailLoggedIn;
 
   // Show app only after init is complete AND the user has explicitly entered (II login or guest)
   const showApp = initDone && (userLoggedIn || guestMode);
@@ -123,6 +126,7 @@ function AppInner() {
     return (
       <LoginPage
         onLogin={(_email: string, _password: string) => {
+          setEmailLoggedIn(true);
           setUserLoggedIn(true);
         }}
         onGuestLogin={() => setGuestMode(true)}
@@ -135,13 +139,21 @@ function AppInner() {
       case "dashboard":
         return <DashboardPage onNavigate={setCurrentPage} />;
       case "fields":
-        return <FieldZonesPage isGuest={isGuestMode} />;
+        return (
+          <FieldZonesPage isGuest={isGuestMode} useBackend={hasValidIdentity} />
+        );
       case "crops":
-        return <CropsPage isGuest={isGuestMode} />;
+        return (
+          <CropsPage isGuest={isGuestMode} useBackend={hasValidIdentity} />
+        );
       case "irrigation":
-        return <IrrigationPage isGuest={isGuestMode} />;
+        return (
+          <IrrigationPage isGuest={isGuestMode} useBackend={hasValidIdentity} />
+        );
       case "sensors":
-        return <SensorsPage isGuest={isGuestMode} />;
+        return (
+          <SensorsPage isGuest={isGuestMode} useBackend={hasValidIdentity} />
+        );
       case "alerts":
         return <AlertsPage />;
       case "analytics":

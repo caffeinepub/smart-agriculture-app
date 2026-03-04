@@ -116,14 +116,20 @@ function formatDuration(dur: bigint): string {
 
 export default function IrrigationPage({
   isGuest = false,
-}: { isGuest?: boolean }) {
+  useBackend = false,
+}: { isGuest?: boolean; useBackend?: boolean }) {
   const { data: schedulesRaw = [], isLoading } = useAllIrrigationSchedules();
   const { data: zonesRaw = [] } = useAllZones();
   const addSchedule = useAddIrrigationSchedule();
   const deleteSchedule = useDeleteIrrigationSchedule();
   const { t } = useLanguage();
 
-  const schedules = schedulesRaw.length > 0 ? schedulesRaw : DEFAULT_SCHEDULES;
+  // For email/guest users, manage schedules in local state so add/delete work without II
+  const backendHasData = useBackend && schedulesRaw.length > 0;
+  const [localSchedules, setLocalSchedules] = useState<IrrigationSchedule[]>(
+    () => (backendHasData ? schedulesRaw : DEFAULT_SCHEDULES),
+  );
+  const schedules = backendHasData ? schedulesRaw : localSchedules;
   const zones = zonesRaw.length > 0 ? zonesRaw : DEFAULT_ZONES;
 
   const [addOpen, setAddOpen] = useState(false);
@@ -139,7 +145,7 @@ export default function IrrigationPage({
 
   function checkAuth(): boolean {
     if (isGuest) {
-      toast.error("Please login with Internet Identity to make changes");
+      toast.error("Please login to make changes");
       return false;
     }
     return true;
@@ -164,6 +170,22 @@ export default function IrrigationPage({
       duration: BigInt(Number.parseInt(form.durationMinutes)),
       waterAmount: Number.parseFloat(form.waterAmount),
     };
+
+    // For email-logged-in users (no Internet Identity), save to local state directly
+    if (!useBackend) {
+      setLocalSchedules((prev) => [...prev, schedule]);
+      setToggleStates((prev) => ({ ...prev, [schedule.id]: true }));
+      toast.success(t("irrigation.addSchedule"));
+      setAddOpen(false);
+      setForm({
+        zoneId: "",
+        startTime: "06:00",
+        durationMinutes: "60",
+        waterAmount: "400",
+      });
+      return;
+    }
+
     try {
       await addSchedule.mutateAsync(schedule);
       toast.success(t("irrigation.addSchedule"));
@@ -181,6 +203,14 @@ export default function IrrigationPage({
 
   async function handleDelete(id: string) {
     if (!checkAuth()) return;
+
+    // For email-logged-in users, delete from local state directly
+    if (!useBackend) {
+      setLocalSchedules((prev) => prev.filter((s) => s.id !== id));
+      toast.success(t("fields.delete"));
+      return;
+    }
+
     try {
       await deleteSchedule.mutateAsync(id);
       toast.success(t("fields.delete"));
@@ -206,11 +236,11 @@ export default function IrrigationPage({
         <Button
           data-ocid="irrigation.add_schedule.open_modal_button"
           onClick={() => {
-            if (!isGuest) setAddOpen(true);
-            else
-              toast.error(
-                "Please login with Internet Identity to add schedules",
-              );
+            if (isGuest) {
+              toast.error("Please login to add schedules");
+            } else {
+              setAddOpen(true);
+            }
           }}
           className="bg-primary text-primary-foreground hover:bg-primary/90"
         >
@@ -432,10 +462,10 @@ export default function IrrigationPage({
             <Button
               data-ocid="irrigation.add_schedule.submit_button"
               onClick={handleAdd}
-              disabled={addSchedule.isPending}
+              disabled={useBackend && addSchedule.isPending}
               className="bg-primary text-primary-foreground"
             >
-              {addSchedule.isPending ? (
+              {useBackend && addSchedule.isPending ? (
                 <Loader2 className="w-4 h-4 mr-2 animate-spin" />
               ) : null}
               {t("irrigation.add")}

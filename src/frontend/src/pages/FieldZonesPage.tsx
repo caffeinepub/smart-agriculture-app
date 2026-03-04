@@ -41,6 +41,7 @@ import {
   useAllCrops,
   useAllZones,
   useDeleteZone,
+  useUpdateZone,
 } from "../hooks/useQueries";
 
 const SOIL_TYPES = [
@@ -115,16 +116,24 @@ const DEFAULT_FALLBACK_ZONES: Zone[] = [
 ];
 
 export default function FieldZonesPage({
-  isGuest = false,
-}: { isGuest?: boolean }) {
+  useBackend = false,
+}: { isGuest?: boolean; useBackend?: boolean }) {
   const { data: zonesRaw = [], isLoading } = useAllZones();
   const { data: crops = [] } = useAllCrops();
   const addZone = useAddZone();
   const deleteZone = useDeleteZone();
+  const updateZone = useUpdateZone();
   const { t } = useLanguage();
 
-  const zones = zonesRaw.length > 0 ? zonesRaw : DEFAULT_FALLBACK_ZONES;
+  // Use backend data only when authenticated with Internet Identity
+  // For email/guest users, always use local state so edit/delete work without II
+  const backendHasData = useBackend && zonesRaw.length > 0;
+  const [localFallbackZones, setLocalFallbackZones] = useState<Zone[]>(() =>
+    useBackend && zonesRaw.length > 0 ? zonesRaw : DEFAULT_FALLBACK_ZONES,
+  );
+  const zones = backendHasData ? zonesRaw : localFallbackZones;
 
+  // Add dialog state
   const [addOpen, setAddOpen] = useState(false);
   const [form, setForm] = useState({
     name: "",
@@ -132,19 +141,16 @@ export default function FieldZonesPage({
     soilType: "Clay Loam",
   });
 
-  function checkAuth(): boolean {
-    if (isGuest) {
-      toast.error(
-        t("auth.loginRequired") ||
-          "Please login with Internet Identity to make changes",
-      );
-      return false;
-    }
-    return true;
-  }
+  // Edit dialog state
+  const [editOpen, setEditOpen] = useState(false);
+  const [editForm, setEditForm] = useState<{
+    id: string;
+    name: string;
+    area: string;
+    soilType: string;
+  }>({ id: "", name: "", area: "", soilType: "Clay Loam" });
 
   async function handleAdd() {
-    if (!checkAuth()) return;
     if (!form.name || !form.area) {
       toast.error("Please fill all required fields");
       return;
@@ -157,7 +163,11 @@ export default function FieldZonesPage({
       coordinates: [],
     };
     try {
-      await addZone.mutateAsync(newZone);
+      if (backendHasData) {
+        await addZone.mutateAsync(newZone);
+      } else {
+        setLocalFallbackZones((prev) => [...prev, newZone]);
+      }
       toast.success(`${t("fields.addZone")}: "${form.name}"`);
       setAddOpen(false);
       setForm({ name: "", area: "", soilType: "Clay Loam" });
@@ -166,11 +176,51 @@ export default function FieldZonesPage({
     }
   }
 
-  async function handleDelete(id: string, name: string) {
-    if (!checkAuth()) return;
+  function handleEditOpen(zone: Zone) {
+    setEditForm({
+      id: zone.id,
+      name: zone.name,
+      area: String(zone.area),
+      soilType: zone.soilType,
+    });
+    setEditOpen(true);
+  }
+
+  async function handleEditSave() {
+    if (!editForm.name || !editForm.area) {
+      toast.error("Please fill all required fields");
+      return;
+    }
+    const updated: Zone = {
+      id: editForm.id,
+      name: editForm.name,
+      area: Number.parseFloat(editForm.area),
+      soilType: editForm.soilType,
+      coordinates: [],
+    };
     try {
-      await deleteZone.mutateAsync(id);
-      toast.success(`"${name}" ${t("fields.delete")}`);
+      if (backendHasData) {
+        await updateZone.mutateAsync(updated);
+      } else {
+        setLocalFallbackZones((prev) =>
+          prev.map((z) => (z.id === updated.id ? updated : z)),
+        );
+      }
+      toast.success(`"${updated.name}" updated successfully`);
+      setEditOpen(false);
+    } catch {
+      toast.error("Failed to update zone. Please ensure you are logged in.");
+    }
+  }
+
+  async function handleDelete(id: string, name: string) {
+    try {
+      if (backendHasData) {
+        await deleteZone.mutateAsync(id);
+      } else {
+        setLocalFallbackZones((prev) => prev.filter((z) => z.id !== id));
+      }
+      toast.success(`"${name}" ${t("fields.delete") || "deleted"}`);
     } catch {
       toast.error("Failed to delete zone. Please ensure you are logged in.");
     }
@@ -191,11 +241,7 @@ export default function FieldZonesPage({
         </div>
         <Button
           data-ocid="fields.add_zone.open_modal_button"
-          onClick={() => {
-            if (!isGuest) setAddOpen(true);
-            else
-              toast.error("Please login with Internet Identity to add zones");
-          }}
+          onClick={() => setAddOpen(true)}
           className="bg-primary text-primary-foreground hover:bg-primary/90"
         >
           <Plus className="w-4 h-4 mr-2" />
@@ -227,6 +273,7 @@ export default function FieldZonesPage({
                 cropCount={cropCount}
                 firstCropType={firstCrop?.cropType}
                 index={idx + 1}
+                onEdit={() => handleEditOpen(zone)}
                 onDelete={() => handleDelete(zone.id, zone.name)}
               />
             );
@@ -304,6 +351,81 @@ export default function FieldZonesPage({
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Edit Zone Dialog */}
+      <Dialog open={editOpen} onOpenChange={setEditOpen}>
+        <DialogContent className="max-w-md" data-ocid="fields.edit_zone.dialog">
+          <DialogHeader>
+            <DialogTitle className="font-display">
+              {t("fields.editZone") || "Edit Zone"}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="space-y-1.5">
+              <Label htmlFor="edit-zone-name">{t("fields.zoneName")}</Label>
+              <Input
+                id="edit-zone-name"
+                data-ocid="fields.edit_zone.input"
+                placeholder={t("fields.zoneNamePlaceholder")}
+                value={editForm.name}
+                onChange={(e) =>
+                  setEditForm({ ...editForm, name: e.target.value })
+                }
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="edit-zone-area">{t("fields.area")}</Label>
+              <Input
+                id="edit-zone-area"
+                type="number"
+                placeholder={t("fields.areaPh")}
+                value={editForm.area}
+                onChange={(e) =>
+                  setEditForm({ ...editForm, area: e.target.value })
+                }
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label>{t("fields.soilType")}</Label>
+              <Select
+                value={editForm.soilType}
+                onValueChange={(v) => setEditForm({ ...editForm, soilType: v })}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {SOIL_TYPES.map((s) => (
+                    <SelectItem key={s} value={s}>
+                      {s}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              data-ocid="fields.edit_zone.cancel_button"
+              onClick={() => setEditOpen(false)}
+            >
+              {t("fields.cancel")}
+            </Button>
+            <Button
+              data-ocid="fields.edit_zone.save_button"
+              onClick={handleEditSave}
+              disabled={updateZone.isPending}
+              className="bg-primary text-primary-foreground"
+            >
+              {updateZone.isPending ? (
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+              ) : null}
+              {t("fields.save") || "Save Changes"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
@@ -315,6 +437,7 @@ function ZoneCard({
   cropCount,
   firstCropType,
   index,
+  onEdit,
   onDelete,
 }: {
   zone: Zone;
@@ -323,6 +446,7 @@ function ZoneCard({
   cropCount: number;
   firstCropType?: string;
   index: number;
+  onEdit: () => void;
   onDelete: () => void;
 }) {
   const { t } = useLanguage();
@@ -388,17 +512,23 @@ function ZoneCard({
             <DropdownMenuTrigger asChild>
               <button
                 type="button"
+                data-ocid={`fields.zone.item.${index}.dropdown_menu`}
                 className="w-7 h-7 rounded-md hover:bg-secondary flex items-center justify-center text-muted-foreground hover:text-foreground transition-colors"
               >
                 <MoreVertical className="w-4 h-4" />
               </button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
-              <DropdownMenuItem className="gap-2 cursor-pointer">
+              <DropdownMenuItem
+                className="gap-2 cursor-pointer"
+                data-ocid={`fields.zone.item.${index}.edit_button`}
+                onClick={onEdit}
+              >
                 <Pencil className="w-3.5 h-3.5" /> {t("fields.editZone")}
               </DropdownMenuItem>
               <DropdownMenuItem
                 className="gap-2 cursor-pointer text-red-600"
+                data-ocid={`fields.zone.item.${index}.delete_button`}
                 onClick={onDelete}
               >
                 <Trash2 className="w-3.5 h-3.5" /> {t("fields.delete")}
