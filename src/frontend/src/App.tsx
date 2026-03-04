@@ -32,10 +32,14 @@ function AppInner() {
   const { data: zones, isLoading: zonesLoading } = useAllZones();
   const initSeed = useInitializeSeedData();
   const { actor, isFetching } = useActor();
-  const { loginStatus } = useInternetIdentity();
+  const { loginStatus, identity } = useInternetIdentity();
 
-  const isAuthenticated = loginStatus === "success";
-  const isInitializing = loginStatus === "initializing";
+  // Consider authenticated if loginStatus is "success" OR if we have a valid non-anonymous identity.
+  // This guards against a race where the useEffect in the hook resets loginStatus back to "idle"
+  // after setAuthClient triggers a re-run, overwriting the "success" state.
+  const hasValidIdentity = !!identity && !identity.getPrincipal().isAnonymous();
+  const isAuthenticated = loginStatus === "success" || hasValidIdentity;
+  const isInitializing = loginStatus === "initializing" && !hasValidIdentity;
   const showApp = isAuthenticated || guestMode;
   // Guest mode = not authenticated with Internet Identity
   const isGuestMode = !isAuthenticated;
