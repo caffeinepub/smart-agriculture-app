@@ -82,7 +82,9 @@ const DEFAULT_ZONES = [
   { id: "zone-4", name: "West Plot" },
 ];
 
-export default function SensorsPage() {
+export default function SensorsPage({
+  isGuest = false,
+}: { isGuest?: boolean }) {
   const { data: zonesRaw = [] } = useAllZones();
   const addSensorData = useAddSensorData();
   const { t } = useLanguage();
@@ -136,6 +138,10 @@ export default function SensorsPage() {
   }
 
   async function handleAddReading() {
+    if (isGuest) {
+      toast.error("Please login with Internet Identity to add sensor readings");
+      return;
+    }
     if (!form.zoneId) {
       toast.error("Please select a zone");
       return;
@@ -156,7 +162,9 @@ export default function SensorsPage() {
       toast.success(t("sensors.addReading"));
       setAddOpen(false);
     } catch {
-      toast.error("Failed to add sensor reading");
+      toast.error(
+        "Failed to add sensor reading. Please ensure you are logged in.",
+      );
     }
   }
 
@@ -185,7 +193,13 @@ export default function SensorsPage() {
             {t("sensors.refresh")}
           </Button>
           <Button
-            onClick={() => setAddOpen(true)}
+            onClick={() => {
+              if (!isGuest) setAddOpen(true);
+              else
+                toast.error(
+                  "Please login with Internet Identity to add sensor readings",
+                );
+            }}
             className="bg-primary text-primary-foreground hover:bg-primary/90"
           >
             <Plus className="w-4 h-4 mr-2" />

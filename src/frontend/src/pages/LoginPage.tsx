@@ -8,28 +8,37 @@ interface Props {
   onGuestLogin: () => void;
 }
 
-export default function LoginPage({ onLogin, onGuestLogin }: Props) {
+export default function LoginPage({ onLogin: _onLogin, onGuestLogin }: Props) {
   const { login, loginStatus } = useInternetIdentity();
   const { lang, setLang, t } = useLanguage();
 
   const isLoggingIn = loginStatus === "logging-in";
 
-  async function handleLogin() {
-    await login();
-    onLogin();
+  function handleLogin() {
+    login();
   }
 
   return (
     <div className="min-h-screen bg-login-bg flex flex-col relative overflow-hidden">
-      {/* Background decorative elements */}
+      {/* Background decorative elements — blurs disabled while II popup is open to prevent GPU flicker */}
       <div
         aria-hidden
         className="absolute inset-0 pointer-events-none overflow-hidden"
       >
         {/* Radial glow top-left */}
-        <div className="absolute -top-32 -left-32 w-96 h-96 rounded-full bg-lime-400/10 blur-3xl" />
+        <div
+          className={cn(
+            "absolute -top-32 -left-32 w-96 h-96 rounded-full bg-lime-400/10",
+            !isLoggingIn && "blur-3xl",
+          )}
+        />
         {/* Radial glow bottom-right */}
-        <div className="absolute -bottom-32 -right-32 w-96 h-96 rounded-full bg-emerald-500/10 blur-3xl" />
+        <div
+          className={cn(
+            "absolute -bottom-32 -right-32 w-96 h-96 rounded-full bg-emerald-500/10",
+            !isLoggingIn && "blur-3xl",
+          )}
+        />
         {/* Diagonal lines pattern */}
         <svg
           role="presentation"
@@ -82,7 +91,10 @@ export default function LoginPage({ onLogin, onGuestLogin }: Props) {
       <header className="relative z-10 flex justify-end p-6">
         <div
           data-ocid="login.language.toggle"
-          className="flex items-center gap-1 bg-white/10 backdrop-blur-sm rounded-full p-1 border border-white/20"
+          className={cn(
+            "flex items-center gap-1 bg-white/10 rounded-full p-1 border border-white/20",
+            !isLoggingIn && "backdrop-blur-sm",
+          )}
         >
           <button
             type="button"
@@ -114,8 +126,13 @@ export default function LoginPage({ onLogin, onGuestLogin }: Props) {
       {/* Main content */}
       <main className="flex-1 flex items-center justify-center px-4 py-8 relative z-10">
         <div className="w-full max-w-md">
-          {/* Card */}
-          <div className="bg-white/10 backdrop-blur-md border border-white/20 rounded-3xl p-8 shadow-2xl">
+          {/* Card — backdrop-blur disabled while II popup open to prevent GPU compositing flicker */}
+          <div
+            className={cn(
+              "bg-white/10 border border-white/20 rounded-3xl p-8 shadow-2xl",
+              !isLoggingIn && "backdrop-blur-md",
+            )}
+          >
             {/* Logo & App name */}
             <div className="flex flex-col items-center mb-8">
               <div className="w-20 h-20 rounded-2xl bg-lime-400/20 border border-lime-400/40 flex items-center justify-center mb-5 shadow-lg">

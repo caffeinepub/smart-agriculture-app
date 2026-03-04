@@ -16,7 +16,11 @@ export function useAllZones() {
     queryKey: ["zones"],
     queryFn: async () => {
       if (!actor) return [];
-      return actor.getAllZones();
+      try {
+        return await actor.getAllZones();
+      } catch {
+        return [];
+      }
     },
     enabled: !!actor && !isFetching,
   });
@@ -56,7 +60,11 @@ export function useAllCrops() {
     queryKey: ["crops"],
     queryFn: async () => {
       if (!actor) return [];
-      return actor.getAllCrops();
+      try {
+        return await actor.getAllCrops();
+      } catch {
+        return [];
+      }
     },
     enabled: !!actor && !isFetching,
   });
@@ -96,7 +104,11 @@ export function useSensorDataByZone(zoneId: string) {
     queryKey: ["sensors", zoneId],
     queryFn: async () => {
       if (!actor) return [];
-      return actor.getSensorDataByZone(zoneId);
+      try {
+        return await actor.getSensorDataByZone(zoneId);
+      } catch {
+        return [];
+      }
     },
     enabled: !!actor && !isFetching && !!zoneId,
   });
@@ -121,7 +133,11 @@ export function useAllIrrigationSchedules() {
     queryKey: ["irrigation-schedules"],
     queryFn: async () => {
       if (!actor) return [];
-      return actor.getAllIrrigationSchedules();
+      try {
+        return await actor.getAllIrrigationSchedules();
+      } catch {
+        return [];
+      }
     },
     enabled: !!actor && !isFetching,
   });
@@ -166,7 +182,11 @@ export function useIrrigationHistoryByZone(zoneId: string) {
     queryKey: ["irrigation-history", zoneId],
     queryFn: async () => {
       if (!actor) return [];
-      return actor.getIrrigationHistoryByZone(zoneId);
+      try {
+        return await actor.getIrrigationHistoryByZone(zoneId);
+      } catch {
+        return [];
+      }
     },
     enabled: !!actor && !isFetching && !!zoneId,
   });
@@ -189,7 +209,11 @@ export function useUserProfile() {
     queryKey: ["user-profile"],
     queryFn: async () => {
       if (!actor) return null;
-      return actor.getCallerUserProfile();
+      try {
+        return await actor.getCallerUserProfile();
+      } catch {
+        return null;
+      }
     },
     enabled: !!actor && !isFetching,
   });

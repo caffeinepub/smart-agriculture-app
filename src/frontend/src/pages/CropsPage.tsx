@@ -117,7 +117,7 @@ const DEFAULT_ZONES = [
   { id: "zone-6", name: "Orchard" },
 ];
 
-export default function CropsPage() {
+export default function CropsPage({ isGuest = false }: { isGuest?: boolean }) {
   const { data: cropsRaw = [], isLoading } = useAllCrops();
   const { data: zonesRaw = [] } = useAllZones();
   const addCrop = useAddCrop();
@@ -140,6 +140,14 @@ export default function CropsPage() {
     expectedYield: "5000",
   });
 
+  function checkAuth(): boolean {
+    if (isGuest) {
+      toast.error("Please login with Internet Identity to make changes");
+      return false;
+    }
+    return true;
+  }
+
   const filtered = crops.filter((c) => {
     const matchZone = filterZone === "all" || c.zoneId === filterZone;
     const healthIdx = deterministicHealth(c.id);
@@ -152,6 +160,7 @@ export default function CropsPage() {
   });
 
   async function handleAdd() {
+    if (!checkAuth()) return;
     if (!form.cropType || !form.zoneId || !form.plantingDate) {
       toast.error("Please fill all required fields");
       return;
@@ -176,16 +185,17 @@ export default function CropsPage() {
         expectedYield: "5000",
       });
     } catch {
-      toast.error("Failed to add crop");
+      toast.error("Failed to add crop. Please ensure you are logged in.");
     }
   }
 
   async function handleDelete(id: string, type: string) {
+    if (!checkAuth()) return;
     try {
       await deleteCrop.mutateAsync(id);
       toast.success(`"${type}" ${t("fields.delete")}`);
     } catch {
-      toast.error("Failed to delete crop");
+      toast.error("Failed to delete crop. Please ensure you are logged in.");
     }
   }
 
@@ -204,7 +214,11 @@ export default function CropsPage() {
         </div>
         <Button
           data-ocid="crops.add_crop.open_modal_button"
-          onClick={() => setAddOpen(true)}
+          onClick={() => {
+            if (!isGuest) setAddOpen(true);
+            else
+              toast.error("Please login with Internet Identity to add crops");
+          }}
           className="bg-primary text-primary-foreground hover:bg-primary/90"
         >
           <Plus className="w-4 h-4 mr-2" />

@@ -35,7 +35,10 @@ function AppInner() {
   const { loginStatus } = useInternetIdentity();
 
   const isAuthenticated = loginStatus === "success";
+  const isInitializing = loginStatus === "initializing";
   const showApp = isAuthenticated || guestMode;
+  // Guest mode = not authenticated with Internet Identity
+  const isGuestMode = !isAuthenticated;
 
   const { mutate: doInitSeed } = initSeed;
   // Initialize seed data on first load if no zones exist
@@ -45,16 +48,41 @@ function AppInner() {
     }
   }, [actor, isFetching, zones, zonesLoading, doInitSeed]);
 
-  function handleLogin() {
-    // called after successful Internet Identity login
-  }
-
   function handleGuestLogin() {
     setGuestMode(true);
   }
 
+  // Show a stable splash while the auth client initializes to avoid flicker/blur
+  if (isInitializing) {
+    return (
+      <div className="min-h-screen bg-login-bg flex items-center justify-center">
+        <div className="flex flex-col items-center gap-4">
+          <div className="w-16 h-16 rounded-2xl bg-lime-400/20 border border-lime-400/40 flex items-center justify-center shadow-lg animate-pulse">
+            <svg
+              aria-hidden="true"
+              role="presentation"
+              className="w-8 h-8 text-lime-400"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"
+              />
+            </svg>
+          </div>
+          <p className="text-white/60 text-sm font-medium">Loading...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Once II login succeeds, showApp becomes true automatically via loginStatus
   if (!showApp) {
-    return <LoginPage onLogin={handleLogin} onGuestLogin={handleGuestLogin} />;
+    return <LoginPage onLogin={() => {}} onGuestLogin={handleGuestLogin} />;
   }
 
   const renderPage = () => {
@@ -62,13 +90,13 @@ function AppInner() {
       case "dashboard":
         return <DashboardPage onNavigate={setCurrentPage} />;
       case "fields":
-        return <FieldZonesPage />;
+        return <FieldZonesPage isGuest={isGuestMode} />;
       case "crops":
-        return <CropsPage />;
+        return <CropsPage isGuest={isGuestMode} />;
       case "irrigation":
-        return <IrrigationPage />;
+        return <IrrigationPage isGuest={isGuestMode} />;
       case "sensors":
-        return <SensorsPage />;
+        return <SensorsPage isGuest={isGuestMode} />;
       case "alerts":
         return <AlertsPage />;
       case "analytics":

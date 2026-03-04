@@ -69,21 +69,21 @@ const DEFAULT_SCHEDULES: IrrigationSchedule[] = [
     id: "sch-1",
     zoneId: "zone-1",
     startTime: BigInt(Date.now()),
-    duration: BigInt(3600000),
+    duration: BigInt(60),
     waterAmount: 450,
   },
   {
     id: "sch-2",
     zoneId: "zone-2",
     startTime: BigInt(Date.now() + 7200000),
-    duration: BigInt(1800000),
+    duration: BigInt(30),
     waterAmount: 280,
   },
   {
     id: "sch-3",
     zoneId: "zone-3",
     startTime: BigInt(Date.now() + 3600000),
-    duration: BigInt(2700000),
+    duration: BigInt(45),
     waterAmount: 380,
   },
 ];
@@ -103,16 +103,20 @@ function formatBigIntTime(ts: bigint): string {
 
 function formatDuration(dur: bigint): string {
   try {
-    const ms = Number(dur);
-    const mins = Math.round(ms / 60000);
-    if (mins >= 60) return `${Math.floor(mins / 60)}h ${mins % 60}m`;
-    return `${mins} min`;
+    const mins = Number(dur);
+    // Handle both raw minutes and milliseconds (legacy data)
+    const actualMins = mins > 10000 ? Math.round(mins / 60000) : mins;
+    if (actualMins >= 60)
+      return `${Math.floor(actualMins / 60)}h ${actualMins % 60}m`;
+    return `${actualMins} min`;
   } catch {
     return "—";
   }
 }
 
-export default function IrrigationPage() {
+export default function IrrigationPage({
+  isGuest = false,
+}: { isGuest?: boolean }) {
   const { data: schedulesRaw = [], isLoading } = useAllIrrigationSchedules();
   const { data: zonesRaw = [] } = useAllZones();
   const addSchedule = useAddIrrigationSchedule();
@@ -133,10 +137,19 @@ export default function IrrigationPage() {
     waterAmount: "400",
   });
 
+  function checkAuth(): boolean {
+    if (isGuest) {
+      toast.error("Please login with Internet Identity to make changes");
+      return false;
+    }
+    return true;
+  }
+
   const thisWeekTotal = WATER_USAGE_DATA.reduce((s, d) => s + d.usage, 0);
   const lastWeekTotal = Math.round(thisWeekTotal * 0.88);
 
   async function handleAdd() {
+    if (!checkAuth()) return;
     if (!form.zoneId) {
       toast.error("Please select a zone");
       return;
@@ -148,7 +161,7 @@ export default function IrrigationPage() {
       id: `sch-${Date.now()}`,
       zoneId: form.zoneId,
       startTime: BigInt(now.getTime()),
-      duration: BigInt(Number.parseInt(form.durationMinutes) * 60000),
+      duration: BigInt(Number.parseInt(form.durationMinutes)),
       waterAmount: Number.parseFloat(form.waterAmount),
     };
     try {
@@ -162,16 +175,19 @@ export default function IrrigationPage() {
         waterAmount: "400",
       });
     } catch {
-      toast.error("Failed to add schedule");
+      toast.error("Failed to add schedule. Please ensure you are logged in.");
     }
   }
 
   async function handleDelete(id: string) {
+    if (!checkAuth()) return;
     try {
       await deleteSchedule.mutateAsync(id);
       toast.success(t("fields.delete"));
     } catch {
-      toast.error("Failed to delete schedule");
+      toast.error(
+        "Failed to delete schedule. Please ensure you are logged in.",
+      );
     }
   }
 
@@ -189,7 +205,13 @@ export default function IrrigationPage() {
         </div>
         <Button
           data-ocid="irrigation.add_schedule.open_modal_button"
-          onClick={() => setAddOpen(true)}
+          onClick={() => {
+            if (!isGuest) setAddOpen(true);
+            else
+              toast.error(
+                "Please login with Internet Identity to add schedules",
+              );
+          }}
           className="bg-primary text-primary-foreground hover:bg-primary/90"
         >
           <Plus className="w-4 h-4 mr-2" />

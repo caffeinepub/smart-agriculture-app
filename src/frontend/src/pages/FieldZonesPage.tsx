@@ -114,7 +114,9 @@ const DEFAULT_FALLBACK_ZONES: Zone[] = [
   },
 ];
 
-export default function FieldZonesPage() {
+export default function FieldZonesPage({
+  isGuest = false,
+}: { isGuest?: boolean }) {
   const { data: zonesRaw = [], isLoading } = useAllZones();
   const { data: crops = [] } = useAllCrops();
   const addZone = useAddZone();
@@ -130,7 +132,19 @@ export default function FieldZonesPage() {
     soilType: "Clay Loam",
   });
 
+  function checkAuth(): boolean {
+    if (isGuest) {
+      toast.error(
+        t("auth.loginRequired") ||
+          "Please login with Internet Identity to make changes",
+      );
+      return false;
+    }
+    return true;
+  }
+
   async function handleAdd() {
+    if (!checkAuth()) return;
     if (!form.name || !form.area) {
       toast.error("Please fill all required fields");
       return;
@@ -148,16 +162,17 @@ export default function FieldZonesPage() {
       setAddOpen(false);
       setForm({ name: "", area: "", soilType: "Clay Loam" });
     } catch {
-      toast.error("Failed to add zone");
+      toast.error("Failed to add zone. Please ensure you are logged in.");
     }
   }
 
   async function handleDelete(id: string, name: string) {
+    if (!checkAuth()) return;
     try {
       await deleteZone.mutateAsync(id);
       toast.success(`"${name}" ${t("fields.delete")}`);
     } catch {
-      toast.error("Failed to delete zone");
+      toast.error("Failed to delete zone. Please ensure you are logged in.");
     }
   }
 
@@ -176,7 +191,11 @@ export default function FieldZonesPage() {
         </div>
         <Button
           data-ocid="fields.add_zone.open_modal_button"
-          onClick={() => setAddOpen(true)}
+          onClick={() => {
+            if (!isGuest) setAddOpen(true);
+            else
+              toast.error("Please login with Internet Identity to add zones");
+          }}
           className="bg-primary text-primary-foreground hover:bg-primary/90"
         >
           <Plus className="w-4 h-4 mr-2" />
