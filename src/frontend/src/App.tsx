@@ -1,5 +1,5 @@
 import { Toaster } from "@/components/ui/sonner";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import AppSidebar from "./components/AppSidebar";
 import { LanguageProvider } from "./contexts/LanguageContext";
 import { useActor } from "./hooks/useActor";
@@ -29,35 +29,69 @@ export type PageId =
 function AppInner() {
   const [currentPage, setCurrentPage] = useState<PageId>("dashboard");
   const [guestMode, setGuestMode] = useState(false);
+  // Once the user has explicitly logged in (email/password form or guest), latch permanently
+  const [userLoggedIn, setUserLoggedIn] = useState(false);
+  // initDone = auth client has fully initialized and we know if there's a prior session
+  const [initDone, setInitDone] = useState(false);
+
   const { data: zones, isLoading: zonesLoading } = useAllZones();
   const initSeed = useInitializeSeedData();
   const { actor, isFetching } = useActor();
   const { loginStatus, identity } = useInternetIdentity();
 
-  // Consider authenticated if loginStatus is "success" OR if we have a valid non-anonymous identity.
-  // This guards against a race where the useEffect in the hook resets loginStatus back to "idle"
-  // after setAuthClient triggers a re-run, overwriting the "success" state.
+  // The useInternetIdentity hook runs its init effect TWICE on mount:
+  //   Pass 1: creates the AuthClient → setAuthClient() → "idle"
+  //   Pass 2: checks isAuthenticated → sets identity if found → "idle"
+  // We must wait for BOTH passes before declaring init complete.
+  // Count "initializing → idle" transitions; mark done after 2nd.
+  // Fallback timeout ensures we never get stuck on slow networks.
+  const idleCount = useRef(0);
+  const prevStatusRef = useRef<string>("");
+
+  useEffect(() => {
+    if (loginStatus === "idle" && prevStatusRef.current === "initializing") {
+      idleCount.current += 1;
+      if (idleCount.current >= 2) {
+        setInitDone(true);
+      }
+    }
+    if (loginStatus === "loginError") {
+      setInitDone(true);
+    }
+    prevStatusRef.current = loginStatus;
+  }, [loginStatus]);
+
+  // Safety fallback: if init takes more than 4 seconds, show login page anyway
+  useEffect(() => {
+    const timer = setTimeout(() => setInitDone(true), 4000);
+    return () => clearTimeout(timer);
+  }, []);
+
+  // identity is set by the hook when: (a) prior session exists on load, or (b) II login succeeds.
+  // loginStatus then goes back to "idle" but identity persists — watch it directly.
   const hasValidIdentity = !!identity && !identity.getPrincipal().isAnonymous();
-  const isAuthenticated = loginStatus === "success" || hasValidIdentity;
-  const isInitializing = loginStatus === "initializing" && !hasValidIdentity;
-  const showApp = isAuthenticated || guestMode;
-  // Guest mode = not authenticated with Internet Identity
-  const isGuestMode = !isAuthenticated;
+
+  // Latch userLoggedIn permanently the moment we have a valid II identity
+  useEffect(() => {
+    if (hasValidIdentity) {
+      setUserLoggedIn(true);
+    }
+  }, [hasValidIdentity]);
+
+  const isGuestMode = !hasValidIdentity;
+
+  // Show app only after init is complete AND the user has explicitly entered (II login or guest)
+  const showApp = initDone && (userLoggedIn || guestMode);
 
   const { mutate: doInitSeed } = initSeed;
-  // Initialize seed data on first load if no zones exist
   useEffect(() => {
     if (!isFetching && actor && !zonesLoading && zones && zones.length === 0) {
       doInitSeed();
     }
   }, [actor, isFetching, zones, zonesLoading, doInitSeed]);
 
-  function handleGuestLogin() {
-    setGuestMode(true);
-  }
-
-  // Show a stable splash while the auth client initializes to avoid flicker/blur
-  if (isInitializing) {
+  // Splash screen while auth client initializes
+  if (!initDone) {
     return (
       <div className="min-h-screen bg-login-bg flex items-center justify-center">
         <div className="flex flex-col items-center gap-4">
@@ -84,9 +118,16 @@ function AppInner() {
     );
   }
 
-  // Once II login succeeds, showApp becomes true automatically via loginStatus
+  // Show login page until explicit login
   if (!showApp) {
-    return <LoginPage onLogin={() => {}} onGuestLogin={handleGuestLogin} />;
+    return (
+      <LoginPage
+        onLogin={(_email: string, _password: string) => {
+          setUserLoggedIn(true);
+        }}
+        onGuestLogin={() => setGuestMode(true)}
+      />
+    );
   }
 
   const renderPage = () => {
